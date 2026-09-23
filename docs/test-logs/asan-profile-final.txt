@@ -1,0 +1,6 @@
+test_profile_web_literal_tab_and_raw_return (__main__.EditorTests.test_profile_web_literal_tab_and_raw_return) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.265s
+
+OK

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Build from source on GNU/Linux, select a frontend, and load a Python configuration."><title>Getting started | cpymacs</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="index.html">cpymacs</a><span class="version">0.1.0 / experimental</span><p>C editing engine. Python customization. Independent frontends.</p></header>
+<div class="layout"><nav aria-label="Documentation"><a href="index.html">Overview</a><a href="getting-started.html" aria-current="page">Getting started</a><a href="architecture.html">Architecture</a><a href="commands.html">Commands</a><a href="api.html">Python API</a><a href="plugins.html">Plugins and modes</a><a href="migration.html">Emacs configuration port</a><a href="protocol.html">Client protocol</a><a href="compatibility.html">Compatibility</a><a href="performance.html">Performance</a><a href="verification.html">Verification</a><a href="safety.html">Safety</a></nav><main id="content"><h1>Getting started</h1><p class="lede">Build from source on GNU/Linux, select a frontend, and load a Python configuration.</p><h2>Dependencies and release build</h2><p>The tested environment is Debian GNU/Linux with GCC 14.2, CPython 3.13.5, json-c 0.18 and Xlib. The declared requirements are C11, CMake 3.18+, CPython 3.10+ embedding development files and json-c 0.15+. Lower supported versions have not all been tested.</p><pre><code class="language-sh">sudo apt-get update
+sudo apt-get install build-essential cmake ninja-build pkg-config     python3-dev libjson-c-dev libx11-dev xfonts-base xvfb
+
+cmake -S . -B build -G Ninja     -DCMAKE_BUILD_TYPE=Release     -DPython3_EXECUTABLE=/usr/bin/python3
+cmake --build build -j
+ctest --test-dir build --output-on-failure</code></pre>
+<p>Select the same Python installation for its interpreter and development library. A virtual environment's Python can otherwise cause CMake to discover mismatched components. Xvfb is only needed for GUI tests; the tests explicitly skip GUI execution when it is unavailable.</p>
+<h2>Choose the frontend</h2><pre><code class="language-sh">./build/cpymacs file.py
+./build/cpymacs --nox file.py
+./build/cpymacs -nw file.py
+./build/cpymacs --batch
+./build/cpymacs --no-python --nox</code></pre>
+<p>With DISPLAY set, the first command launches the separate <code>cpymacs-gui</code> executable. Otherwise it starts the terminal frontend. <code>--nox</code>, <code>-nox</code>, <code>-nw</code> and bare <code>nox</code> all force the terminal. GUI operation requires X11 or XWayland, not a native Wayland-only connection. An X11 connection failure is not a guarantee of automatic terminal fallback.</p>
+<h2>Compile without a GUI</h2><pre><code class="language-sh">cmake -S . -B build-nox -G Ninja     -DCPYMACS_GUI=OFF -DCMAKE_BUILD_TYPE=Release     -DPython3_EXECUTABLE=/usr/bin/python3
+cmake --build build-nox -j
+./build-nox/cpymacs --nox</code></pre>
+<p>This configuration does not discover or link Xlib. <code>--no-python</code> is different: it disables plugin execution at runtime, but the backend binary still links CPython.</p>
+<h2>Load the supplied development profile</h2><pre><code class="language-sh">./build/cpymacs --config examples/dotemacs.py example.py
+./build/cpymacs --nox --config examples/dotemacs.py page.html.j2</code></pre>
+<p>Use <code>C-x C-f</code> to open a file, <code>C-x C-s</code> to save, <code>C-g</code> to cancel, and <code>C-x C-c</code> to quit. Modified buffers require confirmation. <code>M-x</code> accepts command names and TAB completes names. In a terminal, Alt is encoded as ESC followed by a key.</p>
+<h2>Persistent sessions</h2><pre><code class="language-sh"># Choose a private directory; do not use a shared, writable socket directory.
+mkdir -p &quot;$HOME/.cache/cpymacs&quot;
+chmod 700 &quot;$HOME/.cache/cpymacs&quot;
+
+# Keep this foreground backend running in its own terminal.
+./build/cpymacs --server &quot;$HOME/.cache/cpymacs/editor.sock&quot;     --config examples/dotemacs.py example.py
+
+# Other terminals can attach either frontend.
+./build/cpymacs --nox --connect &quot;$HOME/.cache/cpymacs/editor.sock&quot;
+./build/cpymacs-gui --connect &quot;$HOME/.cache/cpymacs/editor.sock&quot;</code></pre>
+<p><code>M-x detach-client</code> closes only that frontend. <code>C-x C-c</code> quits the shared editor. All clients share editing state, including point and the minibuffer. This is not collaborative editing or an independent-frame model. Configure the backend when starting it: connection mode rejects configuration options.</p>
+<h2>Install and relocate</h2><pre><code class="language-sh">cmake --install build --prefix &quot;$HOME/.local&quot;
+export PATH=&quot;$HOME/.local/bin:$PATH&quot;
+cpymacs --nox</code></pre>
+<p>Installed plugins live under <code>share/cpymacs/python</code>; examples under <code>share/cpymacs/examples</code>; documentation under <code>share/doc/cpymacs</code>. Executable-relative discovery permits relocation of the whole prefix. <code>CPYMACS_PYTHON_DIR</code> deliberately overrides discovery. Do not point it at untrusted code.</p>
+<h2>GitHub Pages</h2><p>For branch publishing, select your branch and <code>/docs</code> under Settings &gt; Pages. For workflow publishing, select GitHub Actions and use the bundled <code>.github/workflows/pages.yml</code>. Its automatic trigger is the <code>main</code> branch; adjust it when your default branch differs. The source archive does not create or publish a repository.</p></main></div>
+<footer>cpymacs 0.1.0 · MIT-licensed source rewrite · Documentation and recorded verification: September 24, 2026.<br>GNU Emacs is a separate project. Command names do not imply complete GNU Emacs compatibility.</footer></body></html>

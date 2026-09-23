@@ -1,0 +1,75 @@
+{
+  "version": "0.1.0",
+  "recorded_date": "2026-09-24",
+  "timezone": "Asia/Tokyo",
+  "environment": {
+    "system": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "python_driver": "3.13.5",
+    "compiler": "cc (Debian 14.2.0-19) 14.2.0",
+    "build": "CMake Release, default LTO enabled when supported",
+    "timing_clock": "CLOCK_MONOTONIC / perf_counter"
+  },
+  "release_gui_on": {
+    "ctest_suites_passed": 3,
+    "ctest_suites_failed": 0,
+    "seconds": 32.85,
+    "backend_unittest_cases": 43,
+    "frontend_unittest_cases": 3
+  },
+  "release_gui_off": {
+    "ctest_suites_passed": 3,
+    "ctest_suites_failed": 0,
+    "seconds": 29.62,
+    "backend_unittest_cases": 43,
+    "frontend_cases_passed": 2,
+    "gui_cases_skipped": 1
+  },
+  "text_properties": {
+    "randomized_edits": 60000,
+    "checks": 600000,
+    "contiguous_inserts": 50000,
+    "passed": true
+  },
+  "sanitizers": {
+    "address": true,
+    "undefined_behavior": true,
+    "backend_groups": [
+      20,
+      23
+    ],
+    "native_store_leak_check": true,
+    "full_process_leak_check": false,
+    "profile_prefix_regression_rerun_passed": true
+  },
+  "installation": {
+    "relocation_with_source_python_unavailable": true
+  },
+  "dependencies": {
+    "gui_links_python_or_editing_core": false,
+    "headless_links_x11": false
+  },
+  "documentation": {
+    "html_pages": 12,
+    "local_links_and_fragments_checked": 202
+  },
+  "unverified": [
+    "Differential GNU Emacs conformance",
+    "Controlled original/Emacs speed comparison",
+    "Real isort/autopep8 versions",
+    "Japanese IME preedit on physical desktop",
+    "Remote GitHub Actions execution",
+    "Remote GitHub Pages deployment"
+  ],
+  "logs": [
+    "test-logs/release-ctest.txt",
+    "test-logs/headless-ctest.txt",
+    "test-logs/backend-integration.txt",
+    "test-logs/frontends.txt",
+    "test-logs/asan-backend-20.txt",
+    "test-logs/asan-backend-23.txt",
+    "test-logs/asan-profile-final.txt",
+    "test-logs/installed-relocation.txt",
+    "test-logs/asan-native-properties.txt"
+  ]
+}

@@ -1,0 +1,12 @@
+/build*/
+/__pycache__/
+**/__pycache__/
+*.py[cod]
+*.o
+*.a
+*.so
+*.sock
+*.core
+/core
+*.zip
+*.tar.gz

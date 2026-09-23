@@ -1,0 +1,28 @@
+test_invalid_utf8_binary_and_directory_rejected (__main__.EditorTests.test_invalid_utf8_binary_and_directory_rejected) ... ok
+test_keyboard_macro (__main__.EditorTests.test_keyboard_macro) ... ok
+test_long_line_navigation_and_edits (__main__.EditorTests.test_long_line_navigation_and_edits) ... ok
+test_malformed_protocol_and_control_character_rendering (__main__.EditorTests.test_malformed_protocol_and_control_character_rendering) ... ok
+test_mark_kill_yank (__main__.EditorTests.test_mark_kill_yank) ... ok
+test_missing_formatters_are_silently_skipped (__main__.EditorTests.test_missing_formatters_are_silently_skipped) ... ok
+test_mode_detection_and_profile_precedence (__main__.EditorTests.test_mode_detection_and_profile_precedence) ... ok
+test_multiline_lexical_state_and_edit_invalidation (__main__.EditorTests.test_multiline_lexical_state_and_edit_invalidation) ... ok
+test_numeric_prefix_and_cancel (__main__.EditorTests.test_numeric_prefix_and_cancel) ... ok
+test_private_server_shared_session_and_detach (__main__.EditorTests.test_private_server_shared_session_and_detach) ... ok
+test_profile_web_literal_tab_and_raw_return (__main__.EditorTests.test_profile_web_literal_tab_and_raw_return) ... ok
+test_python_indent_and_highlight_plugin (__main__.EditorTests.test_python_indent_and_highlight_plugin) ... ok
+test_query_replace (__main__.EditorTests.test_query_replace) ... ok
+test_readonly_rejects_edits (__main__.EditorTests.test_readonly_rejects_edits) ... ok
+test_refuse_unconfirmed_overwrite (__main__.EditorTests.test_refuse_unconfirmed_overwrite) ... ok
+test_symlink_save_keeps_link (__main__.EditorTests.test_symlink_save_keeps_link) ... ok
+test_transpose_and_open_line (__main__.EditorTests.test_transpose_and_open_line) ... ok
+test_undo_redo_and_history_branch (__main__.EditorTests.test_undo_redo_and_history_branch) ... ok
+test_unicode_codepoints_and_byte_boundaries (__main__.EditorTests.test_unicode_codepoints_and_byte_boundaries) ... ok
+test_window_split_switch_and_delete (__main__.EditorTests.test_window_split_switch_and_delete) ... ok
+test_without_python (__main__.EditorTests.test_without_python) ... ok
+test_word_motion_and_case (__main__.EditorTests.test_word_motion_and_case) ... ok
+test_yank_pop (__main__.EditorTests.test_yank_pop) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 26.821s
+
+OK

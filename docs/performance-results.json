@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "environment": {
+    "system": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "python_driver": "3.13.5",
+    "compiler": "cc (Debian 14.2.0-19) 14.2.0",
+    "build": "CMake Release, default LTO enabled when supported",
+    "timing_clock": "CLOCK_MONOTONIC / perf_counter"
+  },
+  "native_runs": [
+    {
+      "benchmark": "native piece table only; not editor or disk latency",
+      "input_bytes": 67108864,
+      "edit_pairs": 20000,
+      "seek_pairs": 20000,
+      "typed_characters": 100000,
+      "load_seconds": 0.044523253,
+      "edit_pair_microseconds": 3.064407,
+      "seek_pair_microseconds": 1.546129,
+      "typing_microseconds_per_character": 0.238767,
+      "stream_to_dev_null_seconds": 0.012905749,
+      "peak_rss_kib": 132992,
+      "checksum": 675812543200
+    },
+    {
+      "benchmark": "native piece table only; not editor or disk latency",
+      "input_bytes": 67108864,
+      "edit_pairs": 20000,
+      "seek_pairs": 20000,
+      "typed_characters": 100000,
+      "load_seconds": 0.046440231,
+      "edit_pair_microseconds": 2.821321,
+      "seek_pair_microseconds": 1.564698,
+      "typing_microseconds_per_character": 0.223387,
+      "stream_to_dev_null_seconds": 0.012286642,
+      "peak_rss_kib": 132992,
+      "checksum": 675812543200
+    },
+    {
+      "benchmark": "native piece table only; not editor or disk latency",
+      "input_bytes": 67108864,
+      "edit_pairs": 20000,
+      "seek_pairs": 20000,
+      "typed_characters": 100000,
+      "load_seconds": 0.051250362,
+      "edit_pair_microseconds": 3.057914,
+      "seek_pair_microseconds": 1.792898,
+      "typing_microseconds_per_character": 0.227478,
+      "stream_to_dev_null_seconds": 0.011937776,
+      "peak_rss_kib": 132992,
+      "checksum": 675812543200
+    }
+  ],
+  "native_medians": {
+    "load_seconds": 0.046440231,
+    "edit_pair_microseconds": 3.057914,
+    "seek_pair_microseconds": 1.564698,
+    "typing_microseconds_per_character": 0.227478,
+    "stream_to_dev_null_seconds": 0.012286642,
+    "peak_rss_kib": 132992
+  },
+  "protocol_runs": [
+    {
+      "file_bytes": 1048576,
+      "iterations": 300,
+      "viewport_rows": 40,
+      "viewport_columns": 120,
+      "open_seconds_excluding_startup": 0.0041374249999535095,
+      "median_key_roundtrip_ms": 0.3630135,
+      "p95_key_roundtrip_ms": 0.691065,
+      "mean_response_bytes": 4485.35,
+      "includes": "Python driver serialization/parsing, local pipe IPC, native editing and viewport generation; excludes display painting"
+    },
+    {
+      "file_bytes": 67108864,
+      "iterations": 300,
+      "viewport_rows": 40,
+      "viewport_columns": 120,
+      "open_seconds_excluding_startup": 0.1704098459999841,
+      "median_key_roundtrip_ms": 0.333582,
+      "p95_key_roundtrip_ms": 0.473926,
+      "mean_response_bytes": 4498.676666666666,
+      "includes": "Python driver serialization/parsing, local pipe IPC, native editing and viewport generation; excludes display painting"
+    }
+  ],
+  "limitations": [
+    "No controlled comparison with simplepypad or GNU Emacs.",
+    "Warm local container; timings are not hardware-independent guarantees.",
+    "Native-store benchmark excludes editor undo history, Python and rendering.",
+    "Peak RSS includes transient input duplication during load.",
+    "Streaming output goes to /dev/null, not durable disk.",
+    "Syntax highlighting is deliberately disabled above 16 MiB.",
+    "Protocol roundtrip excludes actual GUI/terminal painting and input-method latency."
+  ]
+}

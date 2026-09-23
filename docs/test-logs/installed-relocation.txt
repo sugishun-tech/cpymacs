@@ -1,0 +1,1 @@
+PASS: installed executable and bundled profile work from /tmp with source Python directory unavailable

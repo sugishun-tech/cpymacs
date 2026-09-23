@@ -1,0 +1,8 @@
+test_gui_real_keys_clipboard_resize_mouse_detach_and_reattach (__main__.FrontendTests.test_gui_real_keys_clipboard_resize_mouse_detach_and_reattach) ... ok
+test_terminal_keys_unicode_paste_save_and_restore (__main__.FrontendTests.test_terminal_keys_unicode_paste_save_and_restore) ... ok
+test_terminal_signal_restores_terminal (__main__.FrontendTests.test_terminal_signal_restores_terminal) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 4.681s
+
+OK
