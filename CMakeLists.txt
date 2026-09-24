@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(cpymacs VERSION 0.1.1 LANGUAGES C)
+project(cpymacs VERSION 0.1.2 LANGUAGES C)
 include(GNUInstallDirs)
 include(CTest)
 option(CPYMACS_GUI "Build the independent C/X11 GUI frontend" ON)

@@ -89,36 +89,49 @@ These plugins recreate the configuration's editing policies. They do **not**
 reimplement all of web-mode, js2-mode, CC Mode, tree-sitter or the original Emacs
 cyberpunk theme. See the [setting-by-setting migration map](docs/migration.html).
 
-## Terminal colours and PuTTY (0.1.1)
+## Terminal colours and PuTTY (0.1.2)
 
-Rebuild and use the same `--nox` command. The terminal renderer now explicitly
-sets both foreground and background, sends a 256-colour fallback before RGB,
-and avoids the user-configurable ANSI slots 0–15. It adjusts text, comments,
-line numbers, selection and mode-line pairs to at least 7:1 computed sRGB
-contrast, including after 256-colour conversion. The GUI theme is unchanged.
-A locally drawn pale-yellow block cursor no longer depends on the terminal's
-cursor colour. No terminal palette is rewritten.
+**0.1.2 fixes the red text and underlined blank rows caused by 0.1.1.** The old
+indexed-then-RGB fallback was unsafe: pre-0.71 PuTTY can interpret unsupported
+RGB operands as independent display attributes instead of ignoring them.
+
+Automatic terminal mode now sends **256-colour controls only** for recognized
+TERM names, including `xterm`, `putty`, `screen` and `tmux`. It never adds RGB
+controls, even when `COLORTERM` says `truecolor`. Unknown TERM values use
+monochrome. RGB requires an explicit `--tui-colors=truecolor` selection on a
+terminal path that actually supports it. No live capability detection is claimed.
+
+All terminal faces reset their previous attributes. Syntax, normal text, padding,
+selection and the software cursor no longer request underlining. Selection and
+mode lines use background colour, with reverse-video fallback. Monochrome uses
+plain text and reverse video, not underlined syntax. The backend, GUI palette,
+Python configuration and editing commands are unchanged.
 
 ```sh
+# Check that the newly built executable is running, not an older PATH entry.
+./build/cpymacs --version
+# Expected: cpymacs 0.1.2
 ./build/cpymacs --nox --config examples/dotemacs.py example.py
-./build/cpymacs --nox --tui-colors=256 example.py   # Indexed colours only
-./build/cpymacs --nox --tui-colors=mono example.py  # Terminal defaults + attributes
+
+# Override an old CPYMACS_TUI_COLORS=truecolor environment setting, if present.
+./build/cpymacs --nox --tui-colors=auto --config examples/dotemacs.py example.py
 ```
 
-`--tui-colors` accepts `auto` (default), `truecolor`, `256`, or `mono`.
-`--tui-cursor` accepts `block` (default) or `terminal`. Both options accept `=`
-or a separate argument, work with `--connect`, and imply terminal mode when
-explicitly supplied. Environment defaults are `CPYMACS_TUI_COLORS` and
-`CPYMACS_TUI_CURSOR`; command-line values override them.
+`--tui-colors` accepts `auto` (default), `256`, `truecolor`, or `mono`.
+`--tui-cursor` accepts `block` (default) or `terminal`. Both accept `=` or a
+separate value, work with `--connect`, and imply terminal mode when supplied.
+Environment defaults are `CPYMACS_TUI_COLORS` and `CPYMACS_TUI_CURSOR`;
+command-line arguments override them.
 
-Automatic mode uses environment hints, not a terminal probe. Recognized modern
-TERM names (including `xterm` and `putty`) use the dual colour sequence; unknown
-terminals use monochrome. Configuring PuTTY's default, basic and cursor colours
-does not change the editor's extended-colour pairs. Disabling both extended
-colour paths, or refusing all colour controls, is different: the terminal's own
-defaults then apply. No application can make identical defaults readable when
-colour changes are refused. See [Terminal colours](docs/terminal-colors.html)
-for the complete behavior, screenshot, verification and limitations.
+Indexed output uses only slots 16-255, not PuTTY's configurable default/basic
+16-colour palette. Foreground and background are always specified together.
+The 7:1 computed sRGB contrast adapter and software block cursor remain enabled.
+No terminal palette is rewritten. When the client disables indexed colours,
+`auto` cannot force them back on: choose `mono` to use readable terminal defaults,
+or explicitly choose `truecolor` only on a known-compatible client. Refusing all
+colour changes with identical foreground/background defaults cannot be repaired
+by a remote application. See [Terminal colours](docs/terminal-colors.html) for
+root cause, exact behavior, test boundaries and real XTerm screenshots.
 
 ## Customize with Python
 

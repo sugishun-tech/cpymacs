@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.2 - 2026-09-24
+
+### Fix legacy PuTTY red text and unwanted underlines
+
+- Remove the unsafe indexed-then-RGB sequence from automatic terminal mode.
+  Recognized terminals now receive indexed colour only, including when a remote
+  COLORTERM variable claims truecolor. RGB is explicit opt-in, not a fallback.
+- Reset attributes for every face and remove intentional underline styling from
+  syntax, padding, selections and the software cursor, in every colour mode.
+- Use background colour and reverse video for selection/mode-line distinction.
+  Keep the high-contrast adapter, fixed extended-colour indices and block cursor.
+- Add a regression fixture captured from the actual 0.1.1 default-theme output.
+  A model of the PuTTY 0.70 SGR switch reproduces its red, underlined rows; new
+  output for both default and cyberpunk themes must pass without those defects.
+- Test misleading environment variables, all colour modes, pre-existing underline
+  state, both themes, hostile terminal palettes, and preserved syntax colours.
+- Update English documentation and record new tests separately from old evidence.
+  No Python plugin, backend editing behavior or X11 GUI code is changed.
+
+The 0.1.1 test model consumed unknown RGB groups as a unit. That was an incorrect
+assumption for old PuTTY and failed to exercise the reported bug. Its old results
+are retained as historical records, not as proof of legacy-client compatibility.
+
+
 ## 0.1.1 - 2026-09-24
 
 ### Terminal readability

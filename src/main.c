@@ -25,7 +25,7 @@
 static volatile sig_atomic_t interrupted;
 static void stop_handler(int signal_number){(void)signal_number;interrupted=1;}
 static void usage(void) {
-    puts("cpymacs 0.1.1\nUsage: cpymacs [OPTIONS] [FILE ...]\n"
+    puts("cpymacs 0.1.2\nUsage: cpymacs [OPTIONS] [FILE ...]\n"
          "  -nw, -nox, --nox, nox       Use the independent native terminal frontend\n"
          "  --tui-colors MODE           Terminal colours: auto (default), truecolor, 256, mono\n"
          "  --tui-cursor MODE           Terminal cursor: block (default), terminal\n"
@@ -172,7 +172,7 @@ int main(int argc,char **argv) {
             else{if(config_count==32){fputs("Too many configuration files\n",stderr);return 2;}forward[forward_count++]=argv[i];configs[config_count++]=argv[++i];forward[forward_count++]=argv[i];}
         }else if(!positional && (!strcmp(s,"--no-user-config")||!strcmp(s,"-q"))){no_user=true;forward[forward_count++]=argv[i];}
         else if(!positional && !strcmp(s,"--no-python")){no_python=true;forward[forward_count++]=argv[i];}
-        else if(!positional && !strcmp(s,"--version")){puts("cpymacs 0.1.1");return 0;}
+        else if(!positional && !strcmp(s,"--version")){puts("cpymacs 0.1.2");return 0;}
         else if(!positional && !strcmp(s,"--help")){usage();return 0;}
         else if(!positional && s[0]=='-'){fprintf(stderr,"cpymacs: unknown option: %s\n",s);return 2;}
         else{files[file_count++]=argv[i];forward[forward_count++]=argv[i];}

@@ -1,12 +1,28 @@
 {
-  "terminal": "XTerm(398) under Xvfb",
-  "test": "Same editor under black/white and all-magenta default/base palettes",
-  "editor_pixel_region": [
-    3,
-    3,
-    603,
-    393
-  ],
-  "identical_editor_pixels": true,
-  "windows_putty_tested": false
+  "version": "0.1.2",
+  "terminal": "XTerm(398)",
+  "display": "Xvfb",
+  "windows_putty_executed": false,
+  "captures": [
+    {
+      "theme": "default",
+      "size": [
+        480,
+        312
+      ],
+      "dark_equals_white": true,
+      "dark_equals_hostile": true,
+      "unique_pixel_colors": 10
+    },
+    {
+      "theme": "cyberpunk",
+      "size": [
+        480,
+        312
+      ],
+      "dark_equals_white": true,
+      "dark_equals_hostile": true,
+      "unique_pixel_colors": 10
+    }
+  ]
 }

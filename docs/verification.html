@@ -1,46 +1,40 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Executed checks for 0.1.1, with older release evidence kept separate."><title>Verification record | cpymacs</title><link rel="stylesheet" href="style.css"></head>
-<body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="index.html">cpymacs</a><span class="version">0.1.1 / experimental</span><p>C editing engine. Python customization. Independent frontends.</p></header>
-<div class="layout"><nav aria-label="Documentation"><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><a href="terminal-colors.html">Terminal colours</a><a href="architecture.html">Architecture</a><a href="commands.html">Commands</a><a href="api.html">Python API</a><a href="plugins.html">Plugins and modes</a><a href="migration.html">Emacs configuration port</a><a href="protocol.html">Client protocol</a><a href="compatibility.html">Compatibility</a><a href="performance.html">Performance</a><a href="verification.html" aria-current="page">Verification</a><a href="safety.html">Safety</a></nav><main id="content"><h1>Verification record</h1><p class="lede">Executed checks for 0.1.1, with older release evidence kept separate.</p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Executed 0.1.2 checks, including the regression that 0.1.1 missed."><title>Verification record | cpymacs</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="skip" href="#content">Skip to content</a><header><a class="brand" href="index.html">cpymacs</a><span class="version">0.1.2 / experimental</span><p>C editing engine. Python customization. Independent frontends.</p></header>
+<div class="layout"><nav aria-label="Documentation"><a href="index.html">Overview</a><a href="getting-started.html">Getting started</a><a href="terminal-colors.html">Terminal colours</a><a href="architecture.html">Architecture</a><a href="commands.html">Commands</a><a href="api.html">Python API</a><a href="plugins.html">Plugins and modes</a><a href="migration.html">Emacs configuration port</a><a href="protocol.html">Client protocol</a><a href="compatibility.html">Compatibility</a><a href="performance.html">Performance</a><a href="verification.html" aria-current="page">Verification</a><a href="safety.html">Safety</a></nav><main id="content"><h1>Verification record</h1><p class="lede">Executed 0.1.2 checks, including the regression that 0.1.1 missed.</p>
 
 <h2>Executed in this environment</h2>
 <table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
-<tr><td>Native terminal palette</td><td>257 palettes passed; every RGB and indexed text/background pair met 7:1. Bundled cyberpunk minimum: 7.0232:1. No basic ANSI slots selected.</td></tr>
-<tr><td>Terminal colour and cursor PTY tests</td><td>11 passed. Includes independent extension rejection, arbitrary default/basic palettes, monochrome, wide UTF-8 text, cursor movement, split panes, minibuffer, resizing, saving and server attachment.</td></tr>
-<tr><td>Existing backend integration</td><td>43 passed. Run directly and again through the integration-only CTest selection.</td></tr>
-<tr><td>Existing frontend tests</td><td>3 passed in the GUI-enabled build: real Xvfb GUI events and two PTY tests.</td></tr>
-<tr><td>Existing native text properties</td><td>60,000 randomized edits, 600,000 checks and 50,000 contiguous inserts passed.</td></tr>
-<tr><td>ASan/UBSan, GUI-free Debug build</td><td>Four selected suites passed: terminal palette, 11 colour PTY tests, existing PTY frontends and text properties. The GUI case was intentionally skipped. Native terminal palette additionally passed with leak checking enabled.</td></tr>
-<tr><td>Actual terminal rendering</td><td>XTerm(398) under Xvfb: editor-area pixels were identical with black/white defaults versus magenta defaults and all-magenta basic ANSI colours. Native cursor was configured to be invisible; the editor cursor remained visible.</td></tr>
+<tr><td>Legacy PuTTY parsing regression</td><td>A model of PuTTY 0.70's SGR switch reproduces red text and underlined blank rows from actual 0.1.1 output. New default/cyberpunk output passes without those defects.</td></tr>
+<tr><td>Native terminal palette</td><td>258 palettes passed. Every RGB/indexed pair meets the computed 7:1 requirement. No basic ANSI slots or underline requests. Cyberpunk minimum: 7.0232:1.</td></tr>
+<tr><td>Terminal PTY cases</td><td>16 passed. Includes misleading COLORTERM hints, both themes, all colour modes, plain padding, hostile palettes, cursor movement, selection, splits, UTF-8, resize and server attachment.</td></tr>
+<tr><td>Backend integration</td><td>43 passed in both Release and the sanitizer build.</td></tr>
+<tr><td>Existing frontends</td><td>3 passed in Release: actual X11 GUI under Xvfb and two PTY cases. The GUI-free sanitizer build passed the two PTY cases and explicitly skipped the GUI case.</td></tr>
+<tr><td>Text properties</td><td>60,000 randomized UTF-8 edits, 600,000 checks and 50,000 contiguous inserts passed in both builds.</td></tr>
+<tr><td>Release aggregate CTest</td><td>All 5 suites completed in one invocation, 72.90 seconds.</td></tr>
+<tr><td>ASan/UBSan aggregate CTest</td><td>All 5 suites completed in one GUI-free Debug invocation, 124.16 seconds. Full-process leak detection was disabled for embedded-Python tests; the isolated native palette test also passed with leak detection enabled.</td></tr>
+<tr><td>Real terminal rendering</td><td>XTerm(398), Xvfb: both themes have identical editor pixels under dark defaults, white defaults, and magenta default/basic palettes. No Windows PuTTY executable was run.</td></tr>
+<tr><td>Negative control</td><td>The new native AUTO-policy regression fails when built against the original 0.1.1 renderer source, and passes against 0.1.2.</td></tr>
 </tbody></table>
-<p>The Release CTest suites were executed in separate bounded invocations because a combined run exceeded the execution tool's time budget. This is not a claim that one uninterrupted aggregate invocation completed. The sanitizer selection for this update does not include a new sanitizer run of all 43 backend cases.</p>
 <h2>Reproduce</h2>
 <pre><code>cmake --build build -j
 ctest --test-dir build --output-on-failure
 /usr/bin/python3 tests/check_docs.py
 
-# Equivalent bounded groups:
-ctest --test-dir build -E '^integration$' --output-on-failure
-ctest --test-dir build -R '^integration$' --output-on-failure
-
-# GUI-free sanitizer checks:
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
     -DCPYMACS_GUI=OFF -DCPYMACS_SANITIZERS=ON -DCPYMACS_LTO=OFF \
     -DPython3_EXECUTABLE=/usr/bin/python3
 cmake --build build-asan -j
-ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-asan \
-    -R 'terminal_|frontends|text_properties' --output-on-failure
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-asan --output-on-failure
 ASAN_OPTIONS=detect_leaks=1 ./build-asan/test_term_style</code></pre>
-<p>Full-process leak checking is disabled for embedded-Python tests because CPython retains process-global allocations. The isolated palette test uses leak checking. Passing ASan/UBSan checks are evidence about executed paths, not a proof of memory safety.</p>
+<p>Elapsed times describe this run, not a performance promise. Passing sanitizer checks establish evidence only for the executed paths.</p>
 <h2>Records</h2>
-<p><a href="verification-results.json">0.1.1 machine-readable summary</a>; <a href="assets/render-verification.json">real XTerm pixel comparison</a>; <a href="terminal-colors.html">terminal behavior and screenshot</a>.</p>
-<ul><li><a href="test-logs/0.1.1-terminal-colors.txt">0.1.1-terminal-colors.txt</a></li><li><a href="test-logs/0.1.1-backend-integration.txt">0.1.1-backend-integration.txt</a></li><li><a href="test-logs/0.1.1-integration-ctest.txt">0.1.1-integration-ctest.txt</a></li><li><a href="test-logs/0.1.1-native-palette-asan.txt">0.1.1-native-palette-asan.txt</a></li><li><a href="test-logs/0.1.1-asan-terminal-frontends.txt">0.1.1-asan-terminal-frontends.txt</a></li>
-<li><a href="test-logs/0.1.1-release-ui-ctest.txt">0.1.1-release-ui-ctest.txt</a></li>
-</ul>
-<h2>Historical evidence</h2>
-<p>The <a href="verification-0.1.0.json">0.1.0 verification record</a>, original test logs, and <a href="performance.html">original performance results</a> are retained. Those older results include the initial installation-relocation and full backend sanitizer checks. They are not relabeled as new measurements.</p>
+<p><a href="verification-results.json">0.1.2 machine-readable report</a>; <a href="assets/render-verification.json">XTerm pixel comparisons</a>; <a href="terminal-colors.html">root cause, fix and screenshots</a>.</p>
+<ul><li><a href="test-logs/0.1.2-release-ctest.txt">Release CTest log</a></li><li><a href="test-logs/0.1.2-asan-ctest.txt">ASan/UBSan CTest log</a></li><li><a href="test-logs/0.1.2-native-palette-asan.txt">Isolated native leak check</a></li><li><a href="test-logs/0.1.2-negative-control.txt">Expected failure against old source</a></li></ul>
+<h2>Historical evidence and the earlier test gap</h2>
+<p>The <a href="verification-0.1.0.json">0.1.0 record</a> and <a href="verification-0.1.1.json">0.1.1 record</a> are retained with their original versions. The 0.1.1 model incorrectly assumed that unsupported RGB groups are always consumed together. Its passes therefore did not establish legacy PuTTY compatibility. The old <a href="assets/render-verification-0.1.1.json">XTerm comparison</a> and <a href="assets/nox-cyberpunk-0.1.1.png">screenshot</a> are also retained under versioned names.</p>
 <h2>Not verified</h2>
-<p>Windows PuTTY was not installed in the execution environment. The PTY test uses an explicit model of PuTTY's documented colour-acceptance controls; XTerm supplies a separate real-rendering check. These checks do not establish compatibility with every PuTTY release, setting, terminal multiplexer, monitor, font or accessibility filter.</p>
-<p>The original limitations remain: no differential GNU Emacs conformance run, controlled editor-to-editor speed comparison, real isort/autopep8 version matrix, physical-desktop Japanese IME test, remote CI execution or GitHub Pages deployment. See <a href="compatibility.html">Compatibility</a> and <a href="safety.html">Safety</a>.</p>
+<p>The user's exact PuTTY release/fork was not established, and no Windows PuTTY executable was run. The old parser model is derived from source; it is not a full emulator or a Windows rendering test. Modern extension-switch tests and actual XTerm rendering are additional, separate checks.</p>
+<p>The existing limits remain: no exhaustive multiplexer or physical-display matrix, GNU Emacs differential conformance test, editor-to-editor speed comparison, real formatter-version matrix, physical-desktop Japanese IME test, remote CI run or GitHub Pages deployment. See <a href="compatibility.html">Compatibility</a> and <a href="safety.html">Safety</a>.</p>
 </main></div>
-<footer>cpymacs 0.1.1 · MIT-licensed source rewrite · Documentation and recorded verification: September 24, 2026.<br>GNU Emacs is a separate project. Command names do not imply complete GNU Emacs compatibility.</footer></body></html>
+<footer>cpymacs 0.1.2 · MIT-licensed source rewrite · Documentation and recorded verification: September 24, 2026.<br>GNU Emacs is a separate project. Command names do not imply complete GNU Emacs compatibility.</footer></body></html>

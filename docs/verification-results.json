@@ -1,19 +1,36 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "recorded_date": "2026-09-24",
   "environment": {
     "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "compiler": "cc (Debian 14.2.0-19) 14.2.0",
+    "python": "3.13.5",
     "windows_putty_executed": false,
     "real_terminal": "XTerm(398) under Xvfb"
   },
+  "root_cause": {
+    "old_grammar_model": "PuTTY 0.70 SGR switch",
+    "old_fixture": "tests/fixtures/0.1.1-default.ansi",
+    "old_fixture_source": "Actual 0.1.1 executable PTY output; default theme; python/cpymacs.py; point moved down 16 lines",
+    "failure_reproduced": "Default RGB background operands 21,25,31 interpreted as underline, blink-off and ANSI red",
+    "new_output_legacy_default_and_cyberpunk_passed": true,
+    "native_test_fails_against_old_source": true
+  },
+  "release_ctest": {
+    "single_aggregate_invocation_completed": true,
+    "suites_passed": 5,
+    "seconds": 72.9
+  },
   "terminal_palette": {
-    "palettes_passed": 257,
+    "palettes_passed": 258,
     "minimum_required_srgb_contrast": 7.0,
     "cyberpunk_minimum_contrast": 7.0232,
     "basic_ansi_slots_used": false,
-    "palette_mutation": false
+    "palette_mutation": false,
+    "automatic_rgb_emission": false,
+    "intentional_underline": false
   },
-  "terminal_pty_cases_passed": 11,
+  "terminal_pty_cases_passed": 16,
   "backend_cases_passed": 43,
   "existing_frontend_cases_passed": 3,
   "text_properties": {
@@ -22,45 +39,67 @@
     "contiguous_inserts": 50000,
     "passed": true
   },
-  "release_ctest": {
-    "independent_suite_groups": true,
-    "suites_passed": 5,
-    "single_aggregate_invocation_completed": false,
-    "group_seconds": [
-      21.29,
-      28.94
-    ]
-  },
   "sanitizers": {
     "address": true,
     "undefined_behavior": true,
     "gui_enabled": false,
-    "selected_suites_passed": 4,
+    "single_aggregate_invocation_completed": true,
+    "suites_passed": 5,
+    "terminal_pty_cases_passed": 16,
+    "backend_cases_passed": 43,
+    "frontend_cases_passed": 2,
+    "frontend_gui_case_skipped": 1,
     "native_palette_leak_check": true,
     "full_process_leak_check": false,
-    "full_backend_integration_rerun_under_sanitizers": false
+    "seconds": 124.16
   },
   "real_terminal_palette_comparison": {
-    "identical_editor_pixels": true,
-    "report": "assets/render-verification.json"
+    "version": "0.1.2",
+    "terminal": "XTerm(398)",
+    "display": "Xvfb",
+    "windows_putty_executed": false,
+    "captures": [
+      {
+        "theme": "default",
+        "size": [
+          480,
+          312
+        ],
+        "dark_equals_white": true,
+        "dark_equals_hostile": true,
+        "unique_pixel_colors": 10
+      },
+      {
+        "theme": "cyberpunk",
+        "size": [
+          480,
+          312
+        ],
+        "dark_equals_white": true,
+        "dark_equals_hostile": true,
+        "unique_pixel_colors": 10
+      }
+    ]
   },
-  "historical_record": "verification-0.1.0.json",
+  "historical_records": [
+    "verification-0.1.0.json",
+    "verification-0.1.1.json"
+  ],
   "logs": [
-    "test-logs/0.1.1-terminal-colors.txt",
-    "test-logs/0.1.1-backend-integration.txt",
-    "test-logs/0.1.1-integration-ctest.txt",
-    "test-logs/0.1.1-native-palette-asan.txt",
-    "test-logs/0.1.1-asan-terminal-frontends.txt",
-    "test-logs/0.1.1-release-ui-ctest.txt"
+    "test-logs/0.1.2-release-ctest.txt",
+    "test-logs/0.1.2-asan-ctest.txt",
+    "test-logs/0.1.2-native-palette-asan.txt",
+    "test-logs/0.1.2-negative-control.txt"
   ],
   "unverified": [
     "Windows PuTTY execution",
-    "All intermediary terminal multiplexers",
+    "Exact user client/version/fork",
+    "All terminal multiplexers",
     "Physical displays and accessibility overrides",
     "Remote CI and Pages publishing"
   ],
   "documentation": {
     "html_pages": 13,
-    "checked_local_links_and_fragments": 239
+    "local_links_and_fragments_checked": 240
   }
 }

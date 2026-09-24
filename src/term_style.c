@@ -84,18 +84,20 @@ bool term_colors_parse(const char *name, TermColors *mode) {
 }
 TermColors term_colors_resolve(TermColors requested, const char *term, const char *colorterm) {
     if (requested != TERM_COLORS_AUTO) return requested;
+    (void)colorterm;
     if (!term) term = "";
     if (!strcmp(term, "dumb") || !strcmp(term, "linux")) return TERM_COLORS_MONO;
-    if (colorterm && (!strcmp(colorterm, "truecolor") || !strcmp(colorterm, "24bit")))
-        return TERM_COLORS_AUTO;
-    /* PuTTY commonly advertises just xterm over SSH. No probing, network
-       round-trip, palette rewriting, or assumption about the local OS. */
+    /* A remote TERM or COLORTERM value is not a capability negotiation.
+       In particular, pre-0.71 PuTTY parses unsupported semicolon RGB operands
+       as separate SGR attributes (21 = underline, 31 = red). Never send both
+       colour grammars as a fallback. AUTO chooses indexed colour only, even
+       when COLORTERM claims truecolor; RGB is an explicit user opt-in. */
     static const char *const names[] = {
         "xterm", "putty", "screen", "tmux", "rxvt", "foot", "kitty",
         "wezterm", "alacritty", "st-", "konsole", "256color", "direct"
     };
     for (unsigned i = 0; i < sizeof names / sizeof *names; ++i)
-        if (strstr(term, names[i])) return TERM_COLORS_AUTO;
+        if (strstr(term, names[i])) return TERM_COLORS_256;
     return TERM_COLORS_MONO;
 }
 void term_palette_update(TermPalette *palette, const uint32_t source[10]) {
@@ -106,11 +108,13 @@ void term_palette_update(TermPalette *palette, const uint32_t source[10]) {
         TermFace *f = &palette->face[i];
         f->bg = i == 8 || i == 9 ? contrast_background(source[i]) : bg;
         f->fg = contrast_text(source[i == 1 || i >= 8 ? 0 : i], f->bg);
-        f->underline = i == 8; /* Visible selection even when colours are rejected. */
-        f->reverse = i == 9; /* Retain a mode-line boundary without colour. */
+        /* Reverse video preserves selection/mode-line boundaries if a client
+           rejects colour changes. Swap the colour operands below so accepted
+           colour pairs still have the intended foreground and background. */
+        f->reverse = i == 8 || i == 9;
         if (i == TERM_CURSOR_FACE) {
             f->fg = 0x101018; f->bg = 0xfff4b8;
-            f->underline = true; f->reverse = true;
+            f->reverse = true;
         }
         f->bg256 = quantize(f->bg, 0, false);
         f->fg256 = quantize(f->fg, term_index_rgb(f->bg256), true);
@@ -120,28 +124,27 @@ void term_palette_update(TermPalette *palette, const uint32_t source[10]) {
 void term_face_write(FILE *out, const TermPalette *palette, TermColors mode, int face) {
     if (face < 0 || face >= TERM_FACE_COUNT) face = 0;
     const TermFace *f = &palette->face[face];
+    /* A caller that has not resolved AUTO must also get the safe behaviour. */
+    if (mode == TERM_COLORS_AUTO) mode = TERM_COLORS_256;
     if (mode == TERM_COLORS_MONO) {
-        /* No bold/dim: PuTTY can map bold to a separately configured colour. */
-        fputs(face == TERM_CURSOR_FACE ? "\033[0;7;4m" :
-              face == 8 ? "\033[0;7m" : face == 9 ? "\033[0;7m" :
-              face >= 2 && face <= 7 ? "\033[0;4m" : "\033[0m", out);
+        /* Ordinary text stays plain. Do not underline syntax, blank cells,
+           selections or the cursor; do not request bold/dim/blink either. */
+        fputs(f->reverse ? "\033[0;7m" : "\033[0m", out);
         return;
     }
-    /* Set both sides of each pair. An SGR reset is never left as the paint
-       state: this does not inherit terminal default colours or bold/reverse. */
-    fputs("\033[0", out);
-    if (f->underline) fputs(";4", out);
-    if (f->reverse) fputs(";7", out);
-    fputc('m', out);
+    /* Reset the complete SGR state before every face. In particular, remove
+       underline/bold/blink left behind by an earlier program or old release. */
+    fputs(f->reverse ? "\033[0;7m" : "\033[0m", out);
     unsigned fg256 = f->reverse ? f->bg256 : f->fg256;
     unsigned bg256 = f->reverse ? f->fg256 : f->bg256;
     uint32_t fg = f->reverse ? f->bg : f->fg, bg = f->reverse ? f->fg : f->bg;
-    if (mode != TERM_COLORS_RGB)
-        fprintf(out, "\033[38;5;%u;48;5;%um", fg256, bg256);
-    if (mode != TERM_COLORS_256)
-        fprintf(out, "\033[38;2;%u;%u;%u;48;2;%u;%u;%um",
+    if (mode == TERM_COLORS_RGB) {
+        fprintf(out, "\033[38;2;%u;%u;%um\033[48;2;%u;%u;%um",
                 (fg >> 16) & 255, (fg >> 8) & 255, fg & 255,
                 (bg >> 16) & 255, (bg >> 8) & 255, bg & 255);
-    /* AUTO writes indexed fallback first, then RGB. PuTTY can independently
-       disable either extension; the last accepted pair remains in effect. */
+    } else {
+        /* Separate foreground/background sequences, using only slots 16-255.
+           No RGB suffix: unknown RGB is not guaranteed to be ignored. */
+        fprintf(out, "\033[38;5;%um\033[48;5;%um", fg256, bg256);
+    }
 }

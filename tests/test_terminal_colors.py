@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Real PTY frontend tests plus deterministic interpretation of colour output.
 
-The interpreter models PuTTY's independent ANSI/256/RGB switches, configurable
-ANSI slots and default colours. It is not Windows PuTTY and does not establish
+The models cover both modern colour switches and pre-0.71 PuTTY SGR
+parsing, including unsupported RGB operands being treated as attributes. It is not Windows PuTTY and does not establish
 pixel-level Windows font or display behaviour.
 """
 from __future__ import annotations
@@ -26,6 +26,7 @@ import unicodedata
 
 BINARY = str(Path(sys.argv.pop(1)).resolve())
 ROOT = Path(__file__).resolve().parents[1]
+CURSOR_256 = 0xffffaf
 CSI = re.compile(r'\x1b\[([0-?]*)([ -/]*)([@-~])')
 
 
@@ -119,8 +120,45 @@ class TerminalModel:
         return ''.join(self.cells.get((row,c),(' ',))[0] for c in range(80))
 
 
+class LegacyPuttyModel(TerminalModel):
+    """Relevant SGR semantics from PuTTY 0.70, not a running PuTTY binary.
+
+    Reference: https://sources.debian.org/src/putty/0.70-6/terminal.c/
+    The SGR switch handles 38/48 only when followed by 5 and an index. For
+    38;2 or 48;2 it leaves all later operands in the main attribute loop.
+    21/4 enable underline, 25 disables blink, and 31 sets ANSI red.
+    """
+    def sgr(self, params):
+        p=[int(x) if x else 0 for x in params.split(';')]; i=0
+        while i<len(p):
+            n=p[i]; i+=1
+            if n==0:
+                self.fg,self.bg=self.defaults
+                self.underline=False; self.reverse=False
+            elif n in (4,21):self.underline=True
+            elif n==24:self.underline=False
+            elif n==7:self.reverse=True
+            elif n==27:self.reverse=False
+            elif n in (38,48):
+                if i+1<len(p) and p[i]==5:
+                    index=p[i+1]&255; i+=2
+                    self.ansi_indices.append(index)
+                    color=indexed_rgb(index) if index>=16 else self.palette[index]
+                    if self.indexed and self.ansi:
+                        if n==38:self.fg=color
+                        else:self.bg=color
+                # For unsupported kinds (notably 2), consume nothing else.
+            elif 30<=n<=37 or 90<=n<=97:
+                if self.ansi:self.fg=self.palette[n-30 if n<90 else n-90+8]
+            elif 40<=n<=47 or 100<=n<=107:
+                if self.ansi:self.bg=self.palette[n-40 if n<100 else n-100+8]
+            elif n==39:self.fg=self.defaults[0]
+            elif n==49:self.bg=self.defaults[1]
+            # Unneeded attributes/unknown values do not alter these test cells.
+
+
 class Session:
-    def __init__(self, directory, extra=(), env=None, target=None):
+    def __init__(self, directory, extra=(), env=None, target=None, profile=True):
         self.master,self.slave=pty.openpty()
         fcntl.ioctl(self.slave,termios.TIOCSWINSZ,struct.pack('HHHH',24,80,0,0))
         self.before=termios.tcgetattr(self.slave)
@@ -131,7 +169,8 @@ class Session:
         environment.update(env or {})
         args=[BINARY,'--nox',*extra]
         if '--connect' not in extra:
-            args+=['--no-user-config','--config',str(ROOT/'examples/dotemacs.py')]
+            args+=['--no-user-config']
+            if profile:args+=['--config',str(ROOT/'examples/dotemacs.py')]
         if target:args.append(str(target))
         self.process=subprocess.Popen(args,stdin=self.slave,stdout=self.slave,
                                       stderr=self.errors,env=environment)
@@ -184,16 +223,16 @@ class TerminalColourTests(unittest.TestCase):
             for session in self.sessions:session.close()
         finally:self.temp.cleanup()
 
-    def session(self,extra=(),env=None,target=True):
-        s=Session(self.directory,extra,env,self.target if target else None)
+    def session(self,extra=(),env=None,target=True,profile=True):
+        s=Session(self.directory,extra,env,self.target if target else None,profile=profile)
         self.sessions.append(s); return s
 
     def test_auto_paints_same_colors_under_hostile_user_palettes(self):
         s=self.session()
-        self.assertIn(b'38;5;',s.output); self.assertIn(b'38;2;',s.output)
+        self.assertIn(b'38;5;',s.output); self.assertNotIn(b'38;2;',s.output)
         self.assertNotIn(b'\x1b]',s.output)
         self.assertIn('# Comment',TerminalModel().feed(bytes(s.output)).row_text(0))
-        for rgb,indexed in ((True,True),(True,False),(False,True)):
+        for rgb,indexed in ((True,True),(False,True)):
             first=None
             for defaults,palette in (((0xffffff,0),[0]*16),
                                      ((0,0xffffff),[0xffffff]*16),
@@ -206,6 +245,66 @@ class TerminalColourTests(unittest.TestCase):
                     self.assertEqual(len(model.cells),24*80)
                     for cell in model.cells.values():self.assertGreaterEqual(contrast(cell[1],cell[2]),7.0)
                     self.assertTrue(all(n>=16 for n in model.ansi_indices))
+
+    def test_auto_remains_indexed_despite_truecolor_environment(self):
+        for term in ('xterm','putty','putty-256color','screen-256color','tmux-256color',
+                     'xterm-direct'):
+            for colorterm in ('truecolor','24bit'):
+                with self.subTest(term=term,colorterm=colorterm):
+                    s=self.session(env={'TERM':term,'COLORTERM':colorterm})
+                    self.assertIn(b'38;5;',s.output)
+                    self.assertNotIn(b'38;2;',s.output)
+                    self.assertNotIn(b'48;2;',s.output)
+
+    def test_plain_text_and_padding_never_underlined(self):
+        for policy in ('auto','256','truecolor','mono'):
+            for profile in (False,True):
+                with self.subTest(policy=policy,profile=profile):
+                    s=self.session((f'--tui-colors={policy}',),profile=profile)
+                    s.keys(b'\x00\x06\x06\x06')  # Select three characters.
+                    model=TerminalModel().feed(bytes(s.output))
+                    self.assertFalse(any(cell[3] for cell in model.cells.values()))
+                    s.keys(b'\x07\x1bx')  # Cancel region; show minibuffer.
+                    model=TerminalModel().feed(bytes(s.output))
+                    self.assertFalse(any(cell[3] for cell in model.cells.values()))
+
+    def test_legacy_parser_reproduces_old_red_underlined_default(self):
+        # This fixture is output captured from the actual 0.1.1 executable,
+        # with no user config and the default theme, matching the report.
+        raw=(ROOT/'tests/fixtures/0.1.1-default.ansi').read_bytes()
+        palette=[0x333333]*16; palette[1]=0xbb0000
+        model=LegacyPuttyModel(ansi_palette=palette).feed(raw)
+        ordinary=[cell for (r,c),cell in model.cells.items() if r<22 and r!=16]
+        self.assertGreater(len(ordinary),1000)
+        self.assertTrue(all(cell[1]==0xbb0000 and cell[3] for cell in ordinary))
+        self.assertIn('import',model.row_text(5))
+        self.assertIn(b'48;2;21;25;31m',raw)
+
+    def test_legacy_parser_no_red_lines_with_both_themes(self):
+        for profile in (False,True):
+            s=self.session(profile=profile)
+            s.keys(b'\x06')  # Expose the first token instead of the cursor.
+            first=None
+            for defaults,color in (((0xffffff,0),0),((0,0xffffff),0xffffff),
+                                   ((0xff00ff,0xff00ff),0xff00ff)):
+                with self.subTest(profile=profile,defaults=defaults):
+                    modern=TerminalModel(defaults=defaults,ansi_palette=[color]*16).feed(bytes(s.output))
+                    old=LegacyPuttyModel(defaults=defaults,ansi_palette=[color]*16).feed(bytes(s.output))
+                    self.assertEqual(old.cells,modern.cells)
+                    self.assertFalse(any(cell[3] for cell in old.cells.values()))
+                    if first is None:first=old.cells
+                    else:self.assertEqual(old.cells,first)
+                    for cell in old.cells.values():self.assertGreaterEqual(contrast(cell[1],cell[2]),7.0)
+                    # Keywords, numbers, strings and comments retain distinct colours.
+                    foregrounds={cell[1] for (r,c),cell in old.cells.items() if r<3 and cell[0]!=' '}
+                    self.assertGreaterEqual(len(foregrounds),5)
+
+    def test_existing_underline_state_is_reset(self):
+        s=self.session()
+        for factory in (TerminalModel,LegacyPuttyModel):
+            model=factory(); model.underline=True; model.reverse=True
+            model.feed(bytes(s.output))
+            self.assertFalse(any(cell[3] for cell in model.cells.values()))
 
     def test_forced_256_and_rgb_only(self):
         for policy,expected,absent in (('256',b'38;5;',b'38;2;'),('truecolor',b'38;2;',b'38;5;')):
@@ -228,7 +327,9 @@ class TerminalColourTests(unittest.TestCase):
         # Defaults still have to be legible: no app can fix foreground==background
         # if the client rejects every colour change.
         model=TerminalModel(ansi=False,defaults=(0,0xffffff)).feed(bytes(s.output))
-        self.assertTrue(any(cell[3] for cell in model.cells.values()))
+        self.assertFalse(any(cell[3] for cell in model.cells.values()))
+        self.assertEqual(model.cells[(0,0)][1:3],(0xffffff,0))
+        self.assertEqual(model.cells[(0,4)][1:3],(0,0xffffff))
         self.assertIn('Comment',model.row_text(0))
         for cell in model.cells.values():self.assertGreaterEqual(contrast(cell[1],cell[2]),7.0)
 
@@ -236,39 +337,39 @@ class TerminalColourTests(unittest.TestCase):
         s=self.session()
         before=TerminalModel().feed(bytes(s.output))
         cursor_before=before.cells[(0,0)]
-        self.assertEqual(cursor_before[2],0xfff4b8)
+        self.assertEqual(cursor_before[2],CURSOR_256)
         s.keys(b'\x06')
         after=TerminalModel().feed(bytes(s.output))
-        self.assertNotEqual(after.cells[(0,0)][2],0xfff4b8)
-        self.assertEqual(after.cells[(0,1)][2],0xfff4b8)
+        self.assertNotEqual(after.cells[(0,0)][2],CURSOR_256)
+        self.assertEqual(after.cells[(0,1)][2],CURSOR_256)
         s.keys(b'\x1bx')
         prompt=TerminalModel().feed(bytes(s.output))
         self.assertIn('M-x',prompt.row_text(23))
-        self.assertTrue(any(cell[2]==0xfff4b8 for (r,c),cell in prompt.cells.items() if r==23))
-        self.assertFalse(any(cell[2]==0xfff4b8 for (r,c),cell in prompt.cells.items() if r<23))
+        self.assertTrue(any(cell[2]==CURSOR_256 for (r,c),cell in prompt.cells.items() if r==23))
+        self.assertFalse(any(cell[2]==CURSOR_256 for (r,c),cell in prompt.cells.items() if r<23))
 
     def test_terminal_cursor_and_option_precedence(self):
         s=self.session(('--tui-colors','256','--tui-cursor=terminal'),
                        {'CPYMACS_TUI_COLORS':'mono','CPYMACS_TUI_CURSOR':'block'})
         self.assertIn(b'38;5;',s.output); self.assertNotIn(b'38;2;',s.output)
         self.assertIn(b'\x1b[?25h',s.output)
-        self.assertFalse(any(cell[2]==0xfff4b8 for cell in TerminalModel().feed(bytes(s.output)).cells.values()))
+        self.assertFalse(any(cell[2]==CURSOR_256 for cell in TerminalModel().feed(bytes(s.output)).cells.values()))
 
     def test_wide_character_cursor_and_split_panes(self):
         self.target.write_text("\u65e5\u672c\u8a9e\n")
         s=self.session()
         model=TerminalModel().feed(bytes(s.output))
-        self.assertEqual(model.cells[(0,0)][2],0xfff4b8)
-        self.assertEqual(model.cells[(0,1)][2],0xfff4b8)
+        self.assertEqual(model.cells[(0,0)][2],CURSOR_256)
+        self.assertEqual(model.cells[(0,1)][2],CURSOR_256)
         s.keys(b'\x06')
         model=TerminalModel().feed(bytes(s.output))
-        self.assertNotEqual(model.cells[(0,0)][2],0xfff4b8)
-        self.assertEqual(model.cells[(0,2)][2],0xfff4b8)
-        self.assertEqual(model.cells[(0,3)][2],0xfff4b8)
+        self.assertNotEqual(model.cells[(0,0)][2],CURSOR_256)
+        self.assertEqual(model.cells[(0,2)][2],CURSOR_256)
+        self.assertEqual(model.cells[(0,3)][2],CURSOR_256)
         s.keys(b'\x18' + b'3' + b'\x18o')
         model=TerminalModel().feed(bytes(s.output))
-        self.assertEqual(model.cells[(0,42)][2],0xfff4b8)
-        self.assertNotEqual(model.cells[(0,2)][2],0xfff4b8)
+        self.assertEqual(model.cells[(0,42)][2],CURSOR_256)
+        self.assertNotEqual(model.cells[(0,2)][2],CURSOR_256)
         self.assertEqual(len(model.cells),24*80)
 
     def test_terminal_options_reject_typos_without_backend(self):

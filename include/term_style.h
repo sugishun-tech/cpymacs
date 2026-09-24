@@ -12,7 +12,7 @@ enum { TERM_FACE_COUNT = 11, TERM_CURSOR_FACE = 10 };
 typedef struct {
     uint32_t fg, bg;
     unsigned fg256, bg256;
-    bool underline, reverse;
+    bool reverse;
 } TermFace;
 typedef struct {
     uint32_t source[10];
