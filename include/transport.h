@@ -18,5 +18,5 @@ bool jbool(json_object *obj,const char *key,bool fallback);
 json_object *json_field(json_object *obj,const char *key);
 char *protocol_read_line(Connection *c);
 bool protocol_write(int fd,const char *text,size_t n);
-int tui_run(Connection *connection);
+int tui_run(Connection *connection, const char *color_policy, const char *cursor_policy);
 #endif

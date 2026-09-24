@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "transport.h"
+#include "term_style.h"
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <poll.h>
@@ -20,50 +21,166 @@ static void restore(void) {
     if(terminal_active){tcsetattr(STDIN_FILENO,TCSAFLUSH,&saved_terminal);fputs("\033[0m\033[?25h\033[?2004l\033[?1049l",stdout);fflush(stdout);terminal_active=false;}
 }
 static void stop(int signo){(void)signo;stopping=1;}
-static void color(FILE *out,unsigned long rgb,bool background){fprintf(out,"\033[%d;2;%lu;%lu;%lum",background?48:38,(rgb>>16)&255,(rgb>>8)&255,rgb&255);}
-static int safe_print(FILE *out,const char *s,size_t n,int limit) {
-    int columns=0;mbstate_t state={0};
-    for(size_t i=0;i<n && columns<limit;){wchar_t wc;size_t k=mbrtowc(&wc,s+i,n-i,&state);if(k==(size_t)-1 || k==(size_t)-2 || !k){memset(&state,0,sizeof state);k=1;wc=L'?';}
-        int w=wcwidth(wc);if(w<0){if(columns+2>limit)break;fputc('^',out);fputc(wc==127?'?':(int)((unsigned)wc+64)%128,out);columns+=2;}
-        else {if(columns+w>limit)break;fwrite(s+i,1,k,out);columns+=w;}i+=k;
-    }return columns;
+static TermPalette terminal_palette;
+static TermColors terminal_colors;
+static bool software_cursor;
+
+typedef struct {
+    FILE *out;
+    int used, limit, cursor, face;
+    bool last_cursor;
+} Paint;
+static void paint_face(Paint *p, int face) {
+    if (face != p->face) {
+        term_face_write(p->out, &terminal_palette, terminal_colors, face);
+        p->face = face;
+    }
 }
-static void print_spaces(FILE *out,int n){while(n-->0)fputc(' ',out);}
-static void draw_state(json_object *state,char **cache,int *oldrows,int *oldcols) {
-    int rows=(int)json_int(state,"rows",24),cols=(int)json_int(state,"cols",80);unsigned long colors[10]={0};json_object *palette=json_field(state,"colors");
-    for(int i=0;i<10;i++)colors[i]=(unsigned long)json_object_get_int64(json_object_array_get_idx(palette,(size_t)i));
-    if(rows!=*oldrows || cols!=*oldcols){fputs("\033[2J",stdout);for(int i=0;i<200;i++){free(cache[i]);cache[i]=NULL;}*oldrows=rows;*oldcols=cols;}
-    json_object *panes=json_field(state,"panes");int cursor_y=0,cursor_x=0;
-    for(int screenrow=0;screenrow<rows;screenrow++) {
-        char *line=NULL;size_t length=0;FILE *out=open_memstream(&line,&length);if(!out)return;
-        if(screenrow==rows-1){fprintf(out,"\033[%d;1H",rows);color(out,colors[0],false);color(out,colors[1],true);
-            const char *prompt=json_string(state,"prompt","");int used=0;
-            if(*prompt){used+=safe_print(out,prompt,strlen(prompt),cols);const char *input=json_string(state,"input","");used+=safe_print(out,input,strlen(input),cols-used);}
-            else{const char *message=json_string(state,"message","");used=safe_print(out,message,strlen(message),cols);}print_spaces(out,cols-used);
-        }else for(size_t i=0;i<json_object_array_length(panes);i++) {
-            json_object *p=json_object_array_get_idx(panes,i);int x=(int)json_int(p,"x",0),y=(int)json_int(p,"y",0),width=(int)json_int(p,"width",cols),height=(int)json_int(p,"height",rows-1),gutter=(int)json_int(p,"gutter",0);
-            if(screenrow<y || screenrow>=y+height)continue;
-            fprintf(out,"\033[%d;%dH",screenrow+1,x+1);color(out,colors[0],false);color(out,colors[screenrow==y+height-1?9:1],true);
-            int used=0;
-            if(screenrow==y+height-1){const char *s=json_string(p,"modeline","");used=safe_print(out,s,strlen(s),width);}
-            else{
-                json_object *row=json_object_array_get_idx(json_field(p,"lines"),(size_t)(screenrow-y));
-                if(gutter){char text[32];int64_t n=json_int(row,"line",-1);if(n>=0)snprintf(text,sizeof text,"%6lld  ",(long long)n+1);else strcpy(text,"        ");color(out,colors[2],false);safe_print(out,text,strlen(text),gutter);used=gutter;}
-                const char *text=json_string(row,"text","");size_t n=strlen(text);json_object *spans=json_field(row,"spans");
-                if(spans && json_object_array_length(spans))for(size_t j=0;j<json_object_array_length(spans);j++) {
-                    json_object *span=json_object_array_get_idx(spans,j);size_t a=(size_t)json_object_get_int64(json_object_array_get_idx(span,0)),z=(size_t)json_object_get_int64(json_object_array_get_idx(span,1));int style=json_object_get_int(json_object_array_get_idx(span,2));
-                    if(a>z || z>n || style<0 || style>9)continue;color(out,colors[style==8?0:style],false);color(out,colors[style==8?8:1],true);used+=safe_print(out,text+a,z-a,width-used);
-                }else{color(out,colors[0],false);used+=safe_print(out,text,n,width-used);}
+static void paint_text(Paint *p, const char *text, size_t length, int face) {
+    mbstate_t state = {0};
+    for (size_t i = 0; i < length && p->used < p->limit;) {
+        wchar_t wc;
+        size_t n = mbrtowc(&wc, text+i, length-i, &state);
+        bool invalid = n == (size_t)-1 || n == (size_t)-2 || !n;
+        if (invalid) { memset(&state, 0, sizeof state); n = 1; wc = L'?'; }
+        int width = wcwidth(wc);
+        if (width < 0) width = 2;
+        if (p->used + width > p->limit) break;
+        bool cursor = width == 0 ? p->last_cursor :
+            software_cursor && p->cursor >= p->used && p->cursor < p->used+width;
+        paint_face(p, cursor ? TERM_CURSOR_FACE : face);
+        if (invalid) fputc('?', p->out);
+        else if (wcwidth(wc) < 0) {
+            fputc('^', p->out);
+            fputc(wc == 127 ? '?' : (int)((unsigned)wc+64)%128, p->out);
+        } else fwrite(text+i, 1, n, p->out);
+        p->used += width; i += n; p->last_cursor = cursor;
+    }
+}
+static void paint_padding(Paint *p, int face) {
+    while (p->used < p->limit) {
+        paint_face(p, software_cursor && p->used == p->cursor ? TERM_CURSOR_FACE : face);
+        fputc(' ', p->out); ++p->used; p->last_cursor = false;
+    }
+}
+static int text_columns(const char *text, size_t length, int limit) {
+    int columns = 0; mbstate_t state = {0};
+    for (size_t i = 0; i < length && columns < limit;) {
+        wchar_t wc; size_t n = mbrtowc(&wc, text+i, length-i, &state);
+        if (n == (size_t)-1 || n == (size_t)-2 || !n) {
+            memset(&state, 0, sizeof state); n = 1; wc = L'?';
+        }
+        int width = wcwidth(wc); if (width < 0) width = 2;
+        if (columns+width > limit) break;
+        columns += width; i += n;
+    }
+    return columns;
+}
+static void draw_state(json_object *state, char **cache, int *oldrows, int *oldcols) {
+    int rows = (int)json_int(state,"rows",24), cols = (int)json_int(state,"cols",80);
+    if (rows < 4 || rows > 200 || cols < 12 || cols > 500) return;
+    uint32_t colors[10] = {0xe4e4ef,0x181818,0x878787,0xffaf00,0xd7ff87,
+                           0xff5faf,0x5fd7ff,0xffaf5f,0x4e3a65,0x303030};
+    json_object *palette = json_field(state,"colors");
+    if (palette && json_object_is_type(palette,json_type_array))
+        for (size_t i = 0; i < 10 && i < json_object_array_length(palette); ++i)
+            colors[i] = (uint32_t)json_object_get_int64(json_object_array_get_idx(palette,i)) & 0xffffff;
+    term_palette_update(&terminal_palette, colors);
+    if (rows != *oldrows || cols != *oldcols) {
+        term_face_write(stdout, &terminal_palette, terminal_colors, 0);
+        /* Paint spaces too: erase-background behaviour is configurable. */
+        fputs("\033[2J",stdout);
+        for (int i = 0; i < 200; ++i) { free(cache[i]); cache[i] = NULL; }
+        *oldrows = rows; *oldcols = cols;
+    }
+    json_object *panes = json_field(state,"panes");
+    if (!panes || !json_object_is_type(panes,json_type_array)) return;
+    int cursor_y = 0, cursor_x = 0;
+    const char *prompt = json_string(state,"prompt","");
+    const char *input = json_string(state,"input","");
+    for (size_t i = 0; i < json_object_array_length(panes); ++i) {
+        json_object *p = json_object_array_get_idx(panes,i);
+        if (jbool(p,"active",false)) {
+            cursor_y = (int)json_int(p,"y",0) + (int)json_int(p,"cursor_row",0);
+            cursor_x = (int)json_int(p,"x",0) + (int)json_int(p,"cursor_col",0);
+        }
+    }
+    if (*prompt) {
+        size_t point = (size_t)json_int(state,"input_point",0);
+        if (point > strlen(input)) point = strlen(input);
+        cursor_y = rows-1;
+        cursor_x = text_columns(prompt,strlen(prompt),cols) + text_columns(input,point,cols);
+    }
+    if (cursor_y < 0) cursor_y = 0; if (cursor_y >= rows) cursor_y = rows-1;
+    if (cursor_x < 0) cursor_x = 0; if (cursor_x >= cols) cursor_x = cols-1;
+    fputs("\033[?25l",stdout);
+    for (int screenrow = 0; screenrow < rows; ++screenrow) {
+        char *line = NULL; size_t length = 0;
+        FILE *out = open_memstream(&line,&length); if (!out) return;
+        if (screenrow == rows-1) {
+            fprintf(out,"\033[%d;1H",rows);
+            Paint paint = {.out=out, .limit=cols, .cursor=*prompt?cursor_x:-1, .face=-1};
+            if (*prompt) {
+                paint_text(&paint,prompt,strlen(prompt),0);
+                paint_text(&paint,input,strlen(input),0);
+            } else {
+                const char *message = json_string(state,"message","");
+                paint_text(&paint,message,strlen(message),0);
             }
-            color(out,colors[screenrow==y+height-1?9:1],true);print_spaces(out,width-used);
-            if(jbool(p,"active",false)){cursor_y=y+(int)json_int(p,"cursor_row",0);cursor_x=x+(int)json_int(p,"cursor_col",0);}
+            paint_padding(&paint,0);
+        } else for (size_t i = 0; i < json_object_array_length(panes); ++i) {
+            json_object *p = json_object_array_get_idx(panes,i);
+            int x=(int)json_int(p,"x",0), y=(int)json_int(p,"y",0);
+            int width=(int)json_int(p,"width",cols), height=(int)json_int(p,"height",rows-1);
+            int gutter=(int)json_int(p,"gutter",0);
+            if (screenrow < y || screenrow >= y+height || x < 0 || x+width > cols) continue;
+            bool modeline = screenrow == y+height-1;
+            int face = modeline ? 9 : 0;
+            fprintf(out,"\033[%d;%dH",screenrow+1,x+1);
+            Paint paint = {.out=out,.limit=width,.face=-1,.cursor=-1};
+            if (!*prompt && !modeline && jbool(p,"active",false) && screenrow == cursor_y)
+                paint.cursor = cursor_x-x;
+            if (modeline) {
+                const char *text = json_string(p,"modeline","");
+                paint_text(&paint,text,strlen(text),face);
+            } else {
+                json_object *row = json_object_array_get_idx(json_field(p,"lines"),(size_t)(screenrow-y));
+                if (gutter) {
+                    char text[32]; int64_t n = json_int(row,"line",-1);
+                    if (n >= 0) snprintf(text,sizeof text,"%6lld  ",(long long)n+1);
+                    else strcpy(text,"        ");
+                    int saved_limit = paint.limit;
+                    paint.limit = gutter < saved_limit ? gutter : saved_limit;
+                    paint_text(&paint,text,strlen(text),2); paint_padding(&paint,2);
+                    paint.limit = saved_limit;
+                }
+                const char *text = json_string(row,"text",""); size_t n = strlen(text), at = 0;
+                json_object *spans = json_field(row,"spans");
+                if (spans && json_object_is_type(spans,json_type_array)) {
+                    for (size_t j = 0; j < json_object_array_length(spans); ++j) {
+                        json_object *span = json_object_array_get_idx(spans,j);
+                        size_t a=(size_t)json_object_get_int64(json_object_array_get_idx(span,0));
+                        size_t z=(size_t)json_object_get_int64(json_object_array_get_idx(span,1));
+                        int style=json_object_get_int(json_object_array_get_idx(span,2));
+                        if (a < at || a > z || z > n || style < 0 || style > 9) continue;
+                        paint_text(&paint,text+at,a-at,0);
+                        paint_text(&paint,text+a,z-a,style); at = z;
+                    }
+                }
+                paint_text(&paint,text+at,n-at,0);
+            }
+            paint_padding(&paint,face);
         }
         fclose(out);
-        if(!cache[screenrow] || strcmp(cache[screenrow],line)){fwrite(line,1,length,stdout);free(cache[screenrow]);cache[screenrow]=line;}else free(line);
+        if (!cache[screenrow] || strcmp(cache[screenrow],line)) {
+            fwrite(line,1,length,stdout); free(cache[screenrow]); cache[screenrow]=line;
+        } else free(line);
     }
-    const char *prompt=json_string(state,"prompt","");if(*prompt){FILE *sink=fopen("/dev/null","w");const char *input=json_string(state,"input","");size_t point=(size_t)json_int(state,"input_point",0);if(point>strlen(input))point=strlen(input);cursor_y=rows-1;cursor_x=safe_print(sink,prompt,strlen(prompt),cols)+safe_print(sink,input,point,cols);fclose(sink);}
-    if(cursor_y<0)cursor_y=0;if(cursor_y>=rows)cursor_y=rows-1;if(cursor_x<0)cursor_x=0;if(cursor_x>=cols)cursor_x=cols-1;
-    fprintf(stdout,"\033[%d;%dH\033[?25h",cursor_y+1,cursor_x+1);fflush(stdout);
+    /* Hardware position stays correct for input methods and terminal tools.
+       The default block is painted above, independent of PuTTY's cursor palette. */
+    fprintf(stdout,"\033[%d;%dH",cursor_y+1,cursor_x+1);
+    if (!software_cursor) fputs("\033[?25h",stdout);
+    fflush(stdout);
 }
 static int get_byte(int timeout) {
     struct pollfd p={STDIN_FILENO,POLLIN,0};int result=poll(&p,1,timeout);if(result<=0)return -1;unsigned char c;return read(STDIN_FILENO,&c,1)==1?c:-1;
@@ -99,11 +216,20 @@ static json_object *read_event(void) {
     }else base_key(c,key);
     json_object *r=request_new("key");json_set_string(r,"key",key);return r;
 }
-int tui_run(Connection *connection) {
+int tui_run(Connection *connection, const char *color_policy, const char *cursor_policy) {
+    TermColors requested;
+    if (!term_colors_parse(color_policy, &requested)) {
+        fputs("cpymacs: --tui-colors must be auto, truecolor, 256, or mono\n", stderr); return 2;
+    }
+    if (cursor_policy && strcmp(cursor_policy,"block") && strcmp(cursor_policy,"terminal")) {
+        fputs("cpymacs: --tui-cursor must be block or terminal\n", stderr); return 2;
+    }
+    terminal_colors = term_colors_resolve(requested, getenv("TERM"), getenv("COLORTERM"));
+    software_cursor = !cursor_policy || !strcmp(cursor_policy,"block");
     if(!isatty(STDIN_FILENO)||!isatty(STDOUT_FILENO)){fputs("cpymacs: terminal frontend needs a TTY; use --batch for JSON Lines\n",stderr);return 2;}
     setlocale(LC_ALL,"");if(tcgetattr(STDIN_FILENO,&saved_terminal)!=0)return 1;struct termios raw=saved_terminal;cfmakeraw(&raw);raw.c_cc[VMIN]=1;raw.c_cc[VTIME]=0;
     if(tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw)!=0)return 1;terminal_active=true;atexit(restore);signal(SIGTERM,stop);signal(SIGINT,stop);signal(SIGHUP,stop);
-    fputs("\033[?1049h\033[?2004h\033[2J",stdout);fflush(stdout);char *cache[200]={0};int oldrows=0,oldcols=0,result=0;
+    fputs("\033[?1049h\033[?2004h\033[?25l",stdout);fflush(stdout);char *cache[200]={0};int oldrows=0,oldcols=0,result=0;
     while(!stopping) {
         struct winsize size={0};ioctl(STDOUT_FILENO,TIOCGWINSZ,&size);int rows=size.ws_row?size.ws_row:24,cols=size.ws_col?size.ws_col:80;
         json_object *req=NULL;struct pollfd p={STDIN_FILENO,POLLIN,0};int ready=poll(&p,1,oldrows?200:0);

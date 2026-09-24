@@ -40,8 +40,8 @@ class Page(HTMLParser):
 def main() -> int:
     pages = {path.resolve(): Page(path) for path in DOCS.glob('*.html')}
     failures: list[str] = []
-    if len(pages) < 12:
-        failures.append('Expected all twelve documentation pages')
+    if len(pages) < 13:
+        failures.append('Expected all thirteen documentation pages')
     if not (DOCS / '.nojekyll').is_file():
         failures.append('Missing .nojekyll')
     checked = 0

@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /mnt/data/cpymacs-work/cpymacs/build
+Test project /mnt/data/cpymacs-work/cpymacs/build
+    Start 5: integration
+1/1 Test #5: integration ......................   Passed   28.94 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =  28.94 sec

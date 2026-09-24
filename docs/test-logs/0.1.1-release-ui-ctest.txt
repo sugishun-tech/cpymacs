@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /mnt/data/cpymacs-work/cpymacs/build
+Test project /mnt/data/cpymacs-work/cpymacs/build
+    Start 1: terminal_palette
+1/4 Test #1: terminal_palette .................   Passed    0.16 sec
+    Start 2: terminal_colors
+2/4 Test #2: terminal_colors ..................   Passed   12.96 sec
+    Start 3: frontends
+3/4 Test #3: frontends ........................   Passed    8.12 sec
+    Start 4: text_properties
+4/4 Test #4: text_properties ..................   Passed    0.04 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  21.29 sec

@@ -89,6 +89,37 @@ These plugins recreate the configuration's editing policies. They do **not**
 reimplement all of web-mode, js2-mode, CC Mode, tree-sitter or the original Emacs
 cyberpunk theme. See the [setting-by-setting migration map](docs/migration.html).
 
+## Terminal colours and PuTTY (0.1.1)
+
+Rebuild and use the same `--nox` command. The terminal renderer now explicitly
+sets both foreground and background, sends a 256-colour fallback before RGB,
+and avoids the user-configurable ANSI slots 0–15. It adjusts text, comments,
+line numbers, selection and mode-line pairs to at least 7:1 computed sRGB
+contrast, including after 256-colour conversion. The GUI theme is unchanged.
+A locally drawn pale-yellow block cursor no longer depends on the terminal's
+cursor colour. No terminal palette is rewritten.
+
+```sh
+./build/cpymacs --nox --config examples/dotemacs.py example.py
+./build/cpymacs --nox --tui-colors=256 example.py   # Indexed colours only
+./build/cpymacs --nox --tui-colors=mono example.py  # Terminal defaults + attributes
+```
+
+`--tui-colors` accepts `auto` (default), `truecolor`, `256`, or `mono`.
+`--tui-cursor` accepts `block` (default) or `terminal`. Both options accept `=`
+or a separate argument, work with `--connect`, and imply terminal mode when
+explicitly supplied. Environment defaults are `CPYMACS_TUI_COLORS` and
+`CPYMACS_TUI_CURSOR`; command-line values override them.
+
+Automatic mode uses environment hints, not a terminal probe. Recognized modern
+TERM names (including `xterm` and `putty`) use the dual colour sequence; unknown
+terminals use monochrome. Configuring PuTTY's default, basic and cursor colours
+does not change the editor's extended-colour pairs. Disabling both extended
+colour paths, or refusing all colour controls, is different: the terminal's own
+defaults then apply. No application can make identical defaults readable when
+colour changes are refused. See [Terminal colours](docs/terminal-colors.html)
+for the complete behavior, screenshot, verification and limitations.
+
 ## Customize with Python
 
 The default configuration location is `$XDG_CONFIG_HOME/cpymacs/init.py`, or
@@ -183,12 +214,14 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
 cmake --build build-asan -j
 ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-asan --output-on-failure
 ASAN_OPTIONS=detect_leaks=1 ./build-asan/test_text
+ASAN_OPTIONS=detect_leaks=1 ./build-asan/test_term_style
 ```
 
 The text-store property test performs 60,000 randomized UTF-8 edits, 600,000
 invariant checks and 50,000 contiguous inserts. Black-box tests cover commands,
 UTF-8 boundaries, CRLF/BOM, atomic saves, external edits, plugin failures, formatter
 transactions, mode precedence, server attachment, real X11 events and real PTYs.
+The terminal suite adds 11 PTY cases and a native 257-palette contrast test.
 Full-process LeakSanitizer is disabled because embedded CPython retains process-wide
 allocations; the native text-store test runs separately with leak checking enabled.
 [Performance](docs/performance.html) explains the benchmark and its limitations.

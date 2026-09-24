@@ -1,0 +1,12 @@
+{
+  "terminal": "XTerm(398) under Xvfb",
+  "test": "Same editor under black/white and all-magenta default/base palettes",
+  "editor_pixel_region": [
+    3,
+    3,
+    603,
+    393
+  ],
+  "identical_editor_pixels": true,
+  "windows_putty_tested": false
+}

@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "editor.h"
 #include "transport.h"
+#include "term_style.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
@@ -24,8 +25,10 @@
 static volatile sig_atomic_t interrupted;
 static void stop_handler(int signal_number){(void)signal_number;interrupted=1;}
 static void usage(void) {
-    puts("cpymacs 0.1.0\nUsage: cpymacs [OPTIONS] [FILE ...]\n"
+    puts("cpymacs 0.1.1\nUsage: cpymacs [OPTIONS] [FILE ...]\n"
          "  -nw, -nox, --nox, nox       Use the independent native terminal frontend\n"
+         "  --tui-colors MODE           Terminal colours: auto (default), truecolor, 256, mono\n"
+         "  --tui-cursor MODE           Terminal cursor: block (default), terminal\n"
          "  --backend, --batch          JSON Lines backend on stdin/stdout\n"
          "  --server SOCKET             Persistent local backend (Unix socket, mode 0600)\n"
          "  --connect SOCKET            Attach frontend to an existing backend\n"
@@ -35,6 +38,8 @@ static void usage(void) {
          "  --help                      Show this help\n"
          "  --version                   Show version\n\n"
          "Without --nox, launch cpymacs-gui when DISPLAY is set; otherwise use the TUI.\n"
+         "Explicit --tui-colors or --tui-cursor options also imply --nox.\n"
+         "Defaults: CPYMACS_TUI_COLORS=auto, CPYMACS_TUI_CURSOR=block.\n"
          "An existing backend owns its configuration; --connect rejects config options.");
 }
 static char *exe_path(const char *argv0) {
@@ -143,12 +148,23 @@ static int backend_server(Editor *e,const char *path) {
 int main(int argc,char **argv) {
     if(!setlocale(LC_ALL,""))setlocale(LC_ALL,"C.UTF-8");
     bool nox=false,backend=false,no_python=false,no_user=false;const char *server=NULL,*connect=NULL;
+    const char *color_policy=getenv("CPYMACS_TUI_COLORS");
+    const char *cursor_policy=getenv("CPYMACS_TUI_CURSOR");
+    bool tui_option=false;
     char *configs[32];int config_count=0;char **files=xmalloc((size_t)argc*sizeof(char*));int file_count=0;
     char **forward=xmalloc((size_t)argc*sizeof(char*));int forward_count=0;bool positional=false;
     for(int i=1;i<argc;i++) {
         const char *s=argv[i];
         if(!positional && !strcmp(s,"--")){positional=true;forward[forward_count++]=argv[i];continue;}
         if(!positional && (!strcmp(s,"--nox")||!strcmp(s,"-nox")||!strcmp(s,"-nw")||!strcmp(s,"nox")))nox=true;
+        else if(!positional && (!strcmp(s,"--tui-colors") || !strcmp(s,"--tui-cursor") ||
+                                !strncmp(s,"--tui-colors=",13) || !strncmp(s,"--tui-cursor=",13))) {
+            bool colors=!strncmp(s,"--tui-colors",12); const char *value=strchr(s,'=');
+            if(value)++value;
+            else {if(i+1==argc){fprintf(stderr,"cpymacs: %s requires a value\n",s);return 2;}value=argv[++i];}
+            if(colors)color_policy=value;else cursor_policy=value;
+            tui_option=true;
+        }
         else if(!positional && (!strcmp(s,"--backend")||!strcmp(s,"--batch")))backend=true;
         else if(!positional && (!strcmp(s,"--server")||!strcmp(s,"--connect")||!strcmp(s,"--config"))) {
             if(i+1==argc){fprintf(stderr,"cpymacs: %s requires a value\n",s);return 2;}
@@ -156,11 +172,13 @@ int main(int argc,char **argv) {
             else{if(config_count==32){fputs("Too many configuration files\n",stderr);return 2;}forward[forward_count++]=argv[i];configs[config_count++]=argv[++i];forward[forward_count++]=argv[i];}
         }else if(!positional && (!strcmp(s,"--no-user-config")||!strcmp(s,"-q"))){no_user=true;forward[forward_count++]=argv[i];}
         else if(!positional && !strcmp(s,"--no-python")){no_python=true;forward[forward_count++]=argv[i];}
-        else if(!positional && !strcmp(s,"--version")){puts("cpymacs 0.1.0");return 0;}
+        else if(!positional && !strcmp(s,"--version")){puts("cpymacs 0.1.1");return 0;}
         else if(!positional && !strcmp(s,"--help")){usage();return 0;}
         else if(!positional && s[0]=='-'){fprintf(stderr,"cpymacs: unknown option: %s\n",s);return 2;}
         else{files[file_count++]=argv[i];forward[forward_count++]=argv[i];}
     }
+    if(tui_option && (backend || server)) {fputs("cpymacs: terminal options are frontend-local\n",stderr);return 2;}
+    if(tui_option)nox=true;
     if(connect && (backend||server||config_count||no_python||no_user)){fputs("cpymacs: --connect cannot change backend configuration\n",stderr);return 2;}
     signal(SIGPIPE,SIG_IGN);char *exe=exe_path(argv[0]);
     if(backend||server) {
@@ -174,7 +192,10 @@ int main(int argc,char **argv) {
         char *gui=xstrdup(exe);char *slash=strrchr(gui,'/');if(slash)*slash=0;size_t n=strlen(gui)+20;char *path=xmalloc(n);snprintf(path,n,"%s/cpymacs-gui",gui);free(gui);
         if(access(path,X_OK)==0){char **args=xmalloc(((size_t)argc+6)*sizeof(char*));int k=0;args[k++]=path;args[k++]="--backend-exe";args[k++]=exe;if(connect){args[k++]="--connect";args[k++]=(char*)connect;}for(int i=0;i<forward_count;i++)args[k++]=forward[i];args[k]=NULL;execv(path,args);perror("cpymacs-gui");free(args);}else fputs("cpymacs: GUI not built; using terminal frontend\n",stderr);free(path);
     }
+    TermColors checked_mode;
+    if(!term_colors_parse(color_policy,&checked_mode)) {fputs("cpymacs: --tui-colors must be auto, truecolor, 256, or mono\n",stderr);return 2;}
+    if(cursor_policy && strcmp(cursor_policy,"block") && strcmp(cursor_policy,"terminal")) {fputs("cpymacs: --tui-cursor must be block or terminal\n",stderr);return 2;}
     Connection connection;if(!connection_open(&connection,connect,exe,forward,forward_count)){perror("cpymacs connection");return 1;}
     if(connect)for(int i=0;i<file_count;i++){json_object *r=request_new("open");json_set_string(r,"path",files[i]);json_object *resp=connection_request(&connection,r);json_object_put(r);if(resp)json_object_put(resp);}
-    int result=tui_run(&connection);connection_close(&connection);free(files);free(forward);free(exe);return result;
+    int result=tui_run(&connection,color_policy,cursor_policy);connection_close(&connection);free(files);free(forward);free(exe);return result;
 }

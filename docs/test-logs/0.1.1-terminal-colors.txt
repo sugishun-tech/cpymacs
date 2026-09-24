@@ -1,0 +1,16 @@
+test_auto_paints_same_colors_under_hostile_user_palettes (__main__.TerminalColourTests.test_auto_paints_same_colors_under_hostile_user_palettes) ... ok
+test_block_cursor_moves_without_ghost_and_prompt_is_visible (__main__.TerminalColourTests.test_block_cursor_moves_without_ghost_and_prompt_is_visible) ... ok
+test_connected_frontend_does_not_change_backend_theme (__main__.TerminalColourTests.test_connected_frontend_does_not_change_backend_theme) ... ok
+test_forced_256_and_rgb_only (__main__.TerminalColourTests.test_forced_256_and_rgb_only) ... ok
+test_monochrome_and_unknown_term_do_not_send_color (__main__.TerminalColourTests.test_monochrome_and_unknown_term_do_not_send_color) ... ok
+test_resize_repaints_background_and_preserves_editing (__main__.TerminalColourTests.test_resize_repaints_background_and_preserves_editing) ... ok
+test_selection_and_cursor_survive_all_color_controls_disabled (__main__.TerminalColourTests.test_selection_and_cursor_survive_all_color_controls_disabled) ... ok
+test_terminal_cursor_and_option_precedence (__main__.TerminalColourTests.test_terminal_cursor_and_option_precedence) ... ok
+test_terminal_options_reject_typos_without_backend (__main__.TerminalColourTests.test_terminal_options_reject_typos_without_backend) ... ok
+test_tui_colors_implies_nox_even_with_display_set (__main__.TerminalColourTests.test_tui_colors_implies_nox_even_with_display_set) ... ok
+test_wide_character_cursor_and_split_panes (__main__.TerminalColourTests.test_wide_character_cursor_and_split_panes) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 12.761s
+
+OK

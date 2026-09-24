@@ -1,75 +1,66 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "recorded_date": "2026-09-24",
-  "timezone": "Asia/Tokyo",
   "environment": {
-    "system": "Linux-6.18.44-x86_64-with-glibc2.41",
-    "cpu": "AMD EPYC 9V74 80-Core Processor",
-    "python_driver": "3.13.5",
-    "compiler": "cc (Debian 14.2.0-19) 14.2.0",
-    "build": "CMake Release, default LTO enabled when supported",
-    "timing_clock": "CLOCK_MONOTONIC / perf_counter"
+    "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "windows_putty_executed": false,
+    "real_terminal": "XTerm(398) under Xvfb"
   },
-  "release_gui_on": {
-    "ctest_suites_passed": 3,
-    "ctest_suites_failed": 0,
-    "seconds": 32.85,
-    "backend_unittest_cases": 43,
-    "frontend_unittest_cases": 3
+  "terminal_palette": {
+    "palettes_passed": 257,
+    "minimum_required_srgb_contrast": 7.0,
+    "cyberpunk_minimum_contrast": 7.0232,
+    "basic_ansi_slots_used": false,
+    "palette_mutation": false
   },
-  "release_gui_off": {
-    "ctest_suites_passed": 3,
-    "ctest_suites_failed": 0,
-    "seconds": 29.62,
-    "backend_unittest_cases": 43,
-    "frontend_cases_passed": 2,
-    "gui_cases_skipped": 1
-  },
+  "terminal_pty_cases_passed": 11,
+  "backend_cases_passed": 43,
+  "existing_frontend_cases_passed": 3,
   "text_properties": {
     "randomized_edits": 60000,
     "checks": 600000,
     "contiguous_inserts": 50000,
     "passed": true
   },
+  "release_ctest": {
+    "independent_suite_groups": true,
+    "suites_passed": 5,
+    "single_aggregate_invocation_completed": false,
+    "group_seconds": [
+      21.29,
+      28.94
+    ]
+  },
   "sanitizers": {
     "address": true,
     "undefined_behavior": true,
-    "backend_groups": [
-      20,
-      23
-    ],
-    "native_store_leak_check": true,
+    "gui_enabled": false,
+    "selected_suites_passed": 4,
+    "native_palette_leak_check": true,
     "full_process_leak_check": false,
-    "profile_prefix_regression_rerun_passed": true
+    "full_backend_integration_rerun_under_sanitizers": false
   },
-  "installation": {
-    "relocation_with_source_python_unavailable": true
+  "real_terminal_palette_comparison": {
+    "identical_editor_pixels": true,
+    "report": "assets/render-verification.json"
   },
-  "dependencies": {
-    "gui_links_python_or_editing_core": false,
-    "headless_links_x11": false
-  },
-  "documentation": {
-    "html_pages": 12,
-    "local_links_and_fragments_checked": 202
-  },
-  "unverified": [
-    "Differential GNU Emacs conformance",
-    "Controlled original/Emacs speed comparison",
-    "Real isort/autopep8 versions",
-    "Japanese IME preedit on physical desktop",
-    "Remote GitHub Actions execution",
-    "Remote GitHub Pages deployment"
-  ],
+  "historical_record": "verification-0.1.0.json",
   "logs": [
-    "test-logs/release-ctest.txt",
-    "test-logs/headless-ctest.txt",
-    "test-logs/backend-integration.txt",
-    "test-logs/frontends.txt",
-    "test-logs/asan-backend-20.txt",
-    "test-logs/asan-backend-23.txt",
-    "test-logs/asan-profile-final.txt",
-    "test-logs/installed-relocation.txt",
-    "test-logs/asan-native-properties.txt"
-  ]
+    "test-logs/0.1.1-terminal-colors.txt",
+    "test-logs/0.1.1-backend-integration.txt",
+    "test-logs/0.1.1-integration-ctest.txt",
+    "test-logs/0.1.1-native-palette-asan.txt",
+    "test-logs/0.1.1-asan-terminal-frontends.txt",
+    "test-logs/0.1.1-release-ui-ctest.txt"
+  ],
+  "unverified": [
+    "Windows PuTTY execution",
+    "All intermediary terminal multiplexers",
+    "Physical displays and accessibility overrides",
+    "Remote CI and Pages publishing"
+  ],
+  "documentation": {
+    "html_pages": 13,
+    "checked_local_links_and_fragments": 239
+  }
 }

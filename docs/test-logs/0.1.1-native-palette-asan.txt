@@ -1,0 +1,2 @@
+PASS: 257 palettes; 7:1 RGB and indexed contrast; no ANSI slots 0-15; cached palette; colour modes
+Cyberpunk minimum foreground/background contrast (RGB and 256-colour): 7.0232:1
